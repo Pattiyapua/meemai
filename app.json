@@ -22,7 +22,8 @@
       "package": "com.anonymous.MEEMAI"
     },
     "web": {
-      "output": "server",
+      "bundler": "metro",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [

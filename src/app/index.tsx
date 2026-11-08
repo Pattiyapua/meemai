@@ -1,5 +1,4 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
 import {
   Image,
   Platform,
@@ -13,16 +12,6 @@ import {
 
 export default function LandingScreen() {
   const router = useRouter();
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // ป้องกัน SSR Hydration Mismatch บน Web แบบปลอดภัย
-  if (Platform.OS === "web" && !isClient) {
-    return <View style={styles.container} />;
-  }
 
   return (
     <SafeAreaView style={styles.container}>

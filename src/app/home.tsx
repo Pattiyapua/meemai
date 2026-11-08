@@ -1,7 +1,7 @@
 import { COLORS } from "@/constants/theme";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import {
     Image,
     Pressable,
@@ -15,39 +15,44 @@ import {
 
 const CATEGORIES = [
   {
-    id: "1",
+    id: "all",
+    name: "ทั้งหมด",
+    icon: "grid-outline" as keyof typeof Ionicons.glyphMap,
+  },
+  {
+    id: "เสื้อผ้า",
     name: "เสื้อผ้า",
     icon: "shirt-outline" as keyof typeof Ionicons.glyphMap,
   },
   {
-    id: "2",
+    id: "ไอที",
     name: "ไอที",
     icon: "laptop-outline" as keyof typeof Ionicons.glyphMap,
   },
   {
-    id: "3",
+    id: "ของใช้",
     name: "ของใช้",
     icon: "home-outline" as keyof typeof Ionicons.glyphMap,
   },
   {
-    id: "4",
+    id: "หนังสือ",
     name: "หนังสือ",
     icon: "book-outline" as keyof typeof Ionicons.glyphMap,
   },
   {
-    id: "5",
+    id: "เครื่องประดับ",
     name: "เครื่องประดับ",
     icon: "watch-outline" as keyof typeof Ionicons.glyphMap,
   },
 ];
 
-// Export ข้อมูลเพื่อให้หน้า Detail นำไปดึงใช้งานได้
 export const NEARBY_ITEMS = [
   {
     id: "1",
     title: "กระเป๋าผ้า Uniqlo สภาพดี",
     price: "฿120",
     type: "ขาย",
+    category: "ของใช้",
     location: "ท่าพระจันทร์ • 1.2 กม.",
     description:
       "กระเป๋าผ้า Uniqlo สีเบจ สภาพดีมาก ใช้น้อย ขนาดกำลังดีใส่โน้ตบุ๊กได้พอดีครับ",
@@ -60,6 +65,7 @@ export const NEARBY_ITEMS = [
     title: "หูฟังไร้สายพร้อมกล่อง",
     price: "ฟรี",
     type: "ให้ฟรี",
+    category: "ไอที",
     location: "รังสิต • 800 ม.",
     description:
       "หูฟังบลูทูธมือสอง สภาพยังใช้งานได้ดี เสียงดี แบตเตอรี่ยังอึด ส่งต่อฟรีสำหรับคนจำเป็นต้องใช้ครับ",
@@ -72,6 +78,7 @@ export const NEARBY_ITEMS = [
     title: "กล้องฟิล์มสไตล์วินเทจ",
     price: "฿50 / วัน",
     type: "ให้ยืม",
+    category: "ไอที",
     location: "ท่าพระจันทร์ • 500 ม.",
     description:
       "กล้องฟิล์มพร้อมเลนส์ เหมาะสำหรับเอาไปถ่ายเล่นทริปสั้นๆ นัดรับได้หน้า มธ.",
@@ -84,6 +91,7 @@ export const NEARBY_ITEMS = [
     title: "หนังสือออกแบบ UI/UX สภาพ 98%",
     price: "฿150",
     type: "ขาย",
+    category: "หนังสือ",
     location: "รังสิต • 2.5 กม.",
     description:
       "หนังสือภาษาไทย อ่านง่าย เหมาะสำหรับผู้เริ่มต้นศึกษาด้าน Design System",
@@ -96,19 +104,33 @@ export const NEARBY_ITEMS = [
 export default function HomeScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState("ทั้งหมด");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [itemList, setItemList] = useState([...NEARBY_ITEMS]);
 
-  const filteredItems = NEARBY_ITEMS.filter((item) => {
-    if (selectedFilter === "ให้ฟรี") return item.isFree;
+  useFocusEffect(
+    useCallback(() => {
+      setItemList([...NEARBY_ITEMS]);
+    }, []),
+  );
+
+  const filteredItems = itemList.filter((item) => {
+    if (selectedCategory !== "all" && item.category !== selectedCategory) {
+      return false;
+    }
+
+    // 📍 กรองประเภท "ขาย", "ให้ฟรี", และ "ให้ยืม"
+    if (selectedFilter === "ขาย") return item.type === "ขาย";
+    if (selectedFilter === "ให้ฟรี")
+      return item.isFree || item.type === "ให้ฟรี";
     if (selectedFilter === "ให้ยืม") return item.type === "ให้ยืม";
     return true;
   });
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
       <View style={styles.header}>
         <Image
-          source={require("@/assets/logo.png")}
+          source={require("../../assets/logo.png")}
           style={styles.smallLogo}
           resizeMode="contain"
         />
@@ -138,24 +160,45 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Categories Grid */}
         <Text style={styles.sectionTitle}>หมวดหมู่แนะนำ</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.categoriesRow}
         >
-          {CATEGORIES.map((cat) => (
-            <Pressable key={cat.id} style={styles.categoryCard}>
-              <View style={styles.categoryIconBg}>
-                <Ionicons name={cat.icon} size={22} color={COLORS.primary} />
-              </View>
-              <Text style={styles.categoryText}>{cat.name}</Text>
-            </Pressable>
-          ))}
+          {CATEGORIES.map((cat) => {
+            const isActive = selectedCategory === cat.id;
+            return (
+              <Pressable
+                key={cat.id}
+                style={styles.categoryCard}
+                onPress={() => setSelectedCategory(cat.id)}
+              >
+                <View
+                  style={[
+                    styles.categoryIconBg,
+                    isActive && styles.categoryIconBgActive,
+                  ]}
+                >
+                  <Ionicons
+                    name={cat.icon}
+                    size={22}
+                    color={isActive ? "#FFFFFF" : COLORS.primary}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.categoryText,
+                    isActive && styles.categoryTextActive,
+                  ]}
+                >
+                  {cat.name}
+                </Text>
+              </Pressable>
+            );
+          })}
         </ScrollView>
 
-        {/* Banner การ์ดแนะนำ */}
         <View style={styles.bannerCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.bannerTag}>ของดีใกล้ตัว</Text>
@@ -163,15 +206,15 @@ export default function HomeScreen() {
             <Text style={styles.bannerSub}>ราคาดี - ให้ฟรี - ให้ยืม</Text>
           </View>
           <Image
-            source={require("@/assets/logo.png")}
+            source={require("../../assets/logo.png")}
             style={styles.bannerImg}
             resizeMode="contain"
           />
         </View>
 
-        {/* Filters */}
+        {/* 📍 เพิ่ม "ขาย" เข้าในแถบปุ่มกดกรองประเภท */}
         <View style={styles.filterRow}>
-          {["ทั้งหมด", "ให้ฟรี", "ให้ยืม"].map((filter) => (
+          {["ทั้งหมด", "ขาย", "ให้ฟรี", "ให้ยืม"].map((filter) => (
             <Pressable
               key={filter}
               style={[
@@ -192,39 +235,53 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Items Grid */}
         <View style={styles.grid}>
-          {filteredItems.map((item) => (
-            <Pressable
-              key={item.id}
-              style={styles.itemCard}
-              onPress={() => router.push(`/detail/${item.id}` as any)}
-            >
-              <Image source={{ uri: item.image }} style={styles.itemImg} />
-              <View style={styles.itemBody}>
-                <Text style={styles.itemTitle} numberOfLines={1}>
-                  {item.title}
-                </Text>
-                <View style={styles.itemFooter}>
-                  <Text
-                    style={[styles.itemPrice, item.isFree && styles.freePrice]}
-                  >
-                    {item.price}
+          {filteredItems.length > 0 ? (
+            filteredItems.map((item) => (
+              <Pressable
+                key={item.id}
+                style={styles.itemCard}
+                onPress={() => router.push(`/detail/${item.id}` as any)}
+              >
+                <Image
+                  source={
+                    typeof item.image === "string"
+                      ? { uri: item.image }
+                      : item.image
+                  }
+                  style={styles.itemImg}
+                />
+                <View style={styles.itemBody}>
+                  <Text style={styles.itemTitle} numberOfLines={1}>
+                    {item.title}
                   </Text>
-                  <Ionicons
-                    name="heart-outline"
-                    size={16}
-                    color={COLORS.textMuted}
-                  />
+                  <View style={styles.itemFooter}>
+                    <Text
+                      style={[
+                        styles.itemPrice,
+                        item.isFree && styles.freePrice,
+                      ]}
+                    >
+                      {item.price}
+                    </Text>
+                    <Ionicons
+                      name="heart-outline"
+                      size={16}
+                      color={COLORS.textMuted}
+                    />
+                  </View>
+                  <Text style={styles.itemLoc}>{item.location}</Text>
                 </View>
-                <Text style={styles.itemLoc}>{item.location}</Text>
-              </View>
-            </Pressable>
-          ))}
+              </Pressable>
+            ))
+          ) : (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyText}>ไม่พบสินค้าในหมวดหมู่นี้</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
-      {/* Floating Action Button สำหรับลงประกาศ */}
       <Pressable
         style={styles.fabBtn}
         onPress={() => router.push("/create" as any)}
@@ -308,7 +365,12 @@ const styles = StyleSheet.create({
     borderColor: COLORS.borderColor,
     marginBottom: 6,
   },
+  categoryIconBgActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
   categoryText: { fontSize: 11, fontWeight: "700", color: COLORS.textPrimary },
+  categoryTextActive: { color: COLORS.primary, fontWeight: "900" },
   bannerCard: {
     backgroundColor: "#FFECC8",
     borderRadius: 20,
@@ -353,6 +415,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     flexWrap: "wrap",
+    minHeight: 180,
   },
   itemCard: {
     width: "48%",
@@ -375,6 +438,13 @@ const styles = StyleSheet.create({
   itemPrice: { fontSize: 14, fontWeight: "900", color: COLORS.primary },
   freePrice: { color: "#2E7D32" },
   itemLoc: { fontSize: 10, color: COLORS.textMuted, marginTop: 4 },
+  emptyBox: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  emptyText: { fontSize: 13, color: COLORS.textMuted, fontWeight: "700" },
   fabBtn: {
     position: "absolute",
     bottom: 24,

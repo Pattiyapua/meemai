@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
+    Image,
     Pressable,
     SafeAreaView,
     ScrollView,
@@ -13,12 +14,22 @@ import {
 } from "react-native";
 import { NEARBY_ITEMS } from "./home";
 
+const CATEGORY_LIST = [
+  "เสื้อผ้า",
+  "ไอที",
+  "ของใช้",
+  "หนังสือ",
+  "เครื่องประดับ",
+];
+
 export default function CreateListingScreen() {
   const router = useRouter();
   const [type, setType] = useState<"ขาย" | "ให้ยืม" | "ให้ฟรี">("ขาย");
+  const [category, setCategory] = useState("ของใช้");
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedImage, setSelectedImage] = useState<any>(null);
 
   const handlePost = () => {
     if (!title.trim()) {
@@ -26,22 +37,27 @@ export default function CreateListingScreen() {
       return;
     }
 
-    // เพิ่มรายการใหม่ลงในข้อมูลจำลอง
-    NEARBY_ITEMS.unshift({
+    const newItem = {
       id: Date.now().toString(),
       title: title,
-      price: type === "ให้ฟรี" ? "ฟรี" : `฿${price}`,
+      price: type === "ให้ฟรี" ? "ฟรี" : `฿${price || "0"}`,
       type: type,
-      location: "ท่าพระจันทร์ • ตอนนี้",
+      category: category,
+      location: "ท่าพระจันทร์ • มธ.",
       description: description || "ไม่มีรายละเอียดเพิ่มเติม",
-      seller: "ฉัน (คุณ)",
-      image:
-        "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=500",
+      seller: "ฉัน (ผู้ขาย)",
+      image: selectedImage || require("../../assets/logo.png"),
       isFree: type === "ให้ฟรี",
-    });
+    };
 
-    alert("ลงประกาศเรียบร้อยแล้ว!");
-    router.back();
+    NEARBY_ITEMS.unshift(newItem);
+
+    alert("ลงประกาศขายเรียบร้อยแล้ว!");
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/home" as any);
+    }
   };
 
   return (
@@ -78,19 +94,60 @@ export default function CreateListingScreen() {
           ))}
         </View>
 
+        <Text style={styles.label}>เลือกหมวดหมู่</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flexDirection: "row", marginBottom: 6 }}
+        >
+          {CATEGORY_LIST.map((cat) => (
+            <Pressable
+              key={cat}
+              style={[styles.catChip, category === cat && styles.catChipActive]}
+              onPress={() => setCategory(cat)}
+            >
+              <Text
+                style={[
+                  styles.catChipText,
+                  category === cat && styles.catChipTextActive,
+                ]}
+              >
+                {cat}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+
         <Text style={styles.label}>รูปภาพสินค้า</Text>
         <Pressable
           style={styles.uploadBox}
-          onPress={() => alert("เลือกรูปภาพแล้ว")}
+          onPress={() => {
+            setSelectedImage(require("../../assets/logo.png"));
+            alert("ใส่เรียบร้อยแล้ว!");
+          }}
         >
-          <Ionicons name="camera-outline" size={32} color={COLORS.textMuted} />
-          <Text style={styles.uploadText}>เพิ่มรูปภาพสินค้า</Text>
+          {selectedImage ? (
+            <Image
+              source={selectedImage}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <>
+              <Ionicons
+                name="camera-outline"
+                size={32}
+                color={COLORS.textMuted}
+              />
+              <Text style={styles.uploadText}>คลิกเพื่อเลือกรูปภาพ</Text>
+            </>
+          )}
         </Pressable>
 
         <Text style={styles.label}>ชื่อสินค้า / สิ่งของ</Text>
         <TextInput
           style={styles.input}
-          placeholder="เช่น หนังสือเรียน, หูฟังมือสอง"
+          placeholder="เช่น กระเป๋าผ้า, หนังสือเรียน"
           placeholderTextColor="#C5BBAC"
           value={title}
           onChangeText={setTitle}
@@ -130,7 +187,7 @@ export default function CreateListingScreen() {
           ]}
           onPress={handlePost}
         >
-          <Text style={styles.submitBtnText}>ยืนยันลงประกาศ</Text>
+          <Text style={styles.submitBtnText}>ยืนยันลงประกาศขาย</Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
@@ -180,8 +237,20 @@ const styles = StyleSheet.create({
   typeActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   typeOptionText: { fontSize: 13, fontWeight: "800", color: COLORS.textMuted },
   typeActiveText: { color: "#FFFFFF" },
+  catChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: COLORS.cardBg,
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
+    marginRight: 8,
+  },
+  catChipActive: { backgroundColor: COLORS.orange, borderColor: COLORS.orange },
+  catChipText: { fontSize: 12, fontWeight: "700", color: COLORS.textMuted },
+  catChipTextActive: { color: "#FFFFFF" },
   uploadBox: {
-    height: 120,
+    height: 110,
     borderRadius: 16,
     backgroundColor: COLORS.cardBg,
     borderWidth: 1.5,
@@ -189,8 +258,10 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   uploadText: { fontSize: 12, color: COLORS.textMuted, marginTop: 6 },
+  previewImage: { width: "100%", height: "100%" },
   input: {
     backgroundColor: COLORS.cardBg,
     borderWidth: 1,
@@ -201,7 +272,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textPrimary,
   },
-  textArea: { height: 100, textAlignVertical: "top" },
+  textArea: { height: 90, textAlignVertical: "top" },
   submitBtn: {
     backgroundColor: COLORS.primary,
     height: 52,
