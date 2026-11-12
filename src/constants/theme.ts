@@ -9,6 +9,8 @@ export const COLORS = {
   textMuted: "#9B8D7A", // สีข้อความรอง / เทาอมน้ำตาล
   borderColor: "#F0E5D2", // สีเส้นขอบ
   backgroundElement: "#F7EEDD", // สีพื้นหลังปุ่ม/แท็บ
+  backgroundSelected: "#F0E5D2",
+  textSecondary: "#9B8D7A",
 };
 
 // เพิ่ม Alias เพื่อป้องกันปัญหาชื่อตัวแปรย่อย
@@ -16,7 +18,9 @@ export const Colors = {
   light: {
     background: COLORS.background,
     backgroundElement: COLORS.backgroundElement,
+    backgroundSelected: COLORS.backgroundSelected,
     text: COLORS.textPrimary,
+    textSecondary: COLORS.textSecondary,
     tint: COLORS.primary,
     tabIconDefault: COLORS.textMuted,
     tabIconSelected: COLORS.primary,
@@ -24,7 +28,9 @@ export const Colors = {
   dark: {
     background: COLORS.background,
     backgroundElement: COLORS.backgroundElement,
+    backgroundSelected: COLORS.backgroundSelected,
     text: COLORS.textPrimary,
+    textSecondary: COLORS.textSecondary,
     tint: COLORS.primary,
     tabIconDefault: COLORS.textMuted,
     tabIconSelected: COLORS.primary,
@@ -33,6 +39,7 @@ export const Colors = {
 export type ThemeColor = keyof typeof Colors.light;
 // เพิ่มค่า Spacing ต่างๆ
 export const Spacing = {
+  half: 2,
   one: 4,
   two: 8,
   three: 12,

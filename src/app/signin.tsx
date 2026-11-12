@@ -1,20 +1,74 @@
+import { COLORS } from "@/constants/theme";
+import { supabase } from "@/supabase";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    Image,
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { COLORS } from "../constants/theme";
 
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleSignIn = async () => {
+    if (!email.trim() || !password) {
+      const msg = "กรุณากรอกอีเมลและรหัสผ่าน";
+      setErrorMessage(msg);
+      if (Platform.OS === "web") {
+        window.alert(msg);
+      } else {
+        Alert.alert("แจ้งเตือน", msg);
+      }
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setErrorMessage(null);
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // เข้าสู่ระบบสำเร็จ
+      router.replace("/home");
+    } catch (err: any) {
+      console.error("Sign in error:", err);
+      let friendlyMsg = err?.message || "ไม่สามารถเข้าสู่ระบบได้";
+      if (friendlyMsg.includes("Invalid login credentials")) {
+        friendlyMsg = "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
+      } else if (friendlyMsg.includes("fetch failed")) {
+        friendlyMsg =
+          "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือสถานะ Supabase";
+      }
+      setErrorMessage(friendlyMsg);
+      if (Platform.OS === "web") {
+        window.alert(friendlyMsg);
+      } else {
+        Alert.alert("เข้าสู่ระบบไม่สำเร็จ", friendlyMsg);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -32,6 +86,14 @@ export default function SignInScreen() {
           </Text>
         </View>
 
+        {/* Error message banner */}
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={18} color={COLORS.primary} />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        )}
+
         {/* Form Card */}
         <View style={styles.card}>
           <Text style={styles.label}>Email</Text>
@@ -40,9 +102,13 @@ export default function SignInScreen() {
             placeholder="example@meemai.com"
             placeholderTextColor="#C5BBAC"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              if (errorMessage) setErrorMessage(null);
+            }}
             keyboardType="email-address"
             autoCapitalize="none"
+            editable={!isLoading}
           />
 
           <Text style={styles.label}>Password</Text>
@@ -51,18 +117,36 @@ export default function SignInScreen() {
             placeholder="••••••••"
             placeholderTextColor="#C5BBAC"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errorMessage) setErrorMessage(null);
+            }}
             secureTextEntry
+            editable={!isLoading}
           />
 
           <Pressable
             style={({ pressed }) => [
               styles.primaryBtn,
+              isLoading && { opacity: 0.7 },
               pressed && styles.btnPressed,
             ]}
-            onPress={() => router.replace("/home")}
+            onPress={handleSignIn}
+            disabled={isLoading}
           >
-            <Text style={styles.primaryBtnText}>เข้าสู่ระบบ</Text>
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryBtnText}>เข้าสู่ระบบ</Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            style={styles.guestBtn}
+            onPress={() => router.replace("/home")}
+            disabled={isLoading}
+          >
+            <Text style={styles.guestBtnText}>เข้าชมในฐานะผู้เยี่ยมชม</Text>
           </Pressable>
         </View>
 
@@ -90,12 +174,12 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 12,
+    width: 110,
+    height: 110,
+    marginBottom: 10,
   },
   title: {
     fontSize: 26,
@@ -107,6 +191,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textMuted,
     marginTop: 4,
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FDECEA",
+    borderWidth: 1,
+    borderColor: "#F5C6CB",
+    padding: 10,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  errorText: {
+    color: COLORS.primary,
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 6,
+    flex: 1,
   },
   card: {
     backgroundColor: COLORS.cardBg,
@@ -145,7 +246,19 @@ const styles = StyleSheet.create({
     height: 52,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 24,
+    marginTop: 20,
+  },
+  guestBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  guestBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.textMuted,
+    textDecorationLine: "underline",
   },
   btnPressed: {
     opacity: 0.88,

@@ -138,12 +138,26 @@ export default function HomeScreen() {
           <Ionicons name="location" size={14} color={COLORS.primary} />
           <Text style={styles.locationText}>ท่าพระจันทร์ • มธ.</Text>
         </View>
-        <Pressable
-          style={styles.iconBtn}
-          onPress={() => router.push("/create" as any)}
-        >
-          <Feather name="plus-circle" size={20} color={COLORS.primary} />
-        </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Pressable
+            style={styles.iconBtn}
+            onPress={() => router.push("/create" as any)}
+            accessibilityLabel="ลงประกาศ"
+          >
+            <Feather name="plus-circle" size={20} color={COLORS.primary} />
+          </Pressable>
+          <Pressable
+            style={[styles.iconBtn, { marginLeft: 8 }]}
+            onPress={() => router.push("/profile" as any)}
+            accessibilityLabel="โปรไฟล์ผู้ใช้งาน"
+          >
+            <Ionicons
+              name="person-circle-outline"
+              size={24}
+              color={COLORS.primary}
+            />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
