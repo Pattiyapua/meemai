@@ -3,6 +3,7 @@ import { COLORS, MaxContentWidth } from "@/constants/theme";
 import {
   ensureProfile,
   getCurrentUser,
+  getDemoProfile,
   pickProfileImage,
   removeAvatar,
   updateProfile,
@@ -57,23 +58,16 @@ export default function EditProfileScreen() {
         setErrorMessage(null);
 
         const user = await getCurrentUser();
-        if (!user) {
-          Alert.alert(
-            "แจ้งเตือน",
-            "กรุณาเข้าสู่ระบบก่อนทำการแก้ไขข้อมูลโปรไฟล์"
-          );
-          router.replace("/signin");
-          return;
-        }
+        const activeProfile: UserProfile = user
+          ? await ensureProfile(user)
+          : getDemoProfile();
 
-        setUserId(user.id);
-        const profile: UserProfile = await ensureProfile(user);
-
-        setFullName(profile.full_name || "");
-        setUsername(profile.username || "");
-        setPhone(profile.phone || "");
-        setBio(profile.bio || "");
-        setCurrentAvatarUrl(profile.avatar_url || null);
+        setUserId(activeProfile.id);
+        setFullName(activeProfile.full_name || "");
+        setUsername(activeProfile.username || "");
+        setPhone(activeProfile.phone || "");
+        setBio(activeProfile.bio || "");
+        setCurrentAvatarUrl(activeProfile.avatar_url || null);
       } catch (err: any) {
         console.error("Error loading user for edit:", err);
         setErrorMessage(

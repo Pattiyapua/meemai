@@ -1,6 +1,13 @@
 import { ErrorState, LoadingState } from "@/components/UIState";
 import { COLORS, MaxContentWidth } from "@/constants/theme";
-import { formatJoinDate, getProfile, ensureProfile, getCurrentUser } from "@/services/profileService";
+import {
+  formatJoinDate,
+  getProfile,
+  ensureProfile,
+  getCurrentUser,
+  getDemoProfile,
+  resetDemoProfile,
+} from "@/services/profileService";
 import { supabase } from "@/supabase";
 import { UserProfile } from "@/types/profile";
 import { Feather, Ionicons } from "@expo/vector-icons";
@@ -61,12 +68,14 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     const doSignOut = async () => {
       try {
+        resetDemoProfile();
         await supabase.auth.signOut();
-        router.replace("/signin");
       } catch (err) {
         console.error("Sign out error:", err);
-        router.replace("/signin");
       }
+      setIsLoggedOut(true);
+      setProfile(null);
+      router.replace("/signin");
     };
 
     if (Platform.OS === "web") {
@@ -161,6 +170,22 @@ export default function ProfileScreen() {
                   <Text style={styles.secondaryBtnText}>สมัครสมาชิก</Text>
                 </Pressable>
               </View>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.demoProfileBtn,
+                  pressed && styles.btnPressed,
+                ]}
+                onPress={() => {
+                  setProfile(getDemoProfile());
+                  setIsLoggedOut(false);
+                }}
+              >
+                <Ionicons name="sparkles" size={16} color={COLORS.primary} />
+                <Text style={styles.demoProfileBtnText}>
+                  เปิดดูตัวอย่างโปรไฟล์ (Demo Profile)
+                </Text>
+              </Pressable>
             </View>
           )}
 
@@ -464,6 +489,25 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: "800",
+  },
+  demoProfileBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF3E0",
+    borderWidth: 1,
+    borderColor: "#FFE0B2",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    marginTop: 14,
+    width: "100%",
+    gap: 8,
+  },
+  demoProfileBtnText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: "700",
   },
   profileCard: {
     backgroundColor: COLORS.cardBg,

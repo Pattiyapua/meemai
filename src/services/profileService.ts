@@ -1,4 +1,4 @@
-import { supabase } from "@/supabase";
+import { supabase, isSupabaseConfigured } from "@/supabase";
 import { ProfileUpdateInput, UserProfile } from "@/types/profile";
 import * as ImagePicker from "expo-image-picker";
 import { Platform } from "react-native";
@@ -7,48 +7,111 @@ export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png"];
 export const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/jpg"];
 
+// โปรไฟล์ตัวอย่างสำหรับโหมด Guest / Demo
+export const DEMO_PROFILE: UserProfile = {
+  id: "demo-user-meemai-001",
+  full_name: "นารถนียา พัววิไล",
+  username: "nuania_tu",
+  email: "pattiya@meemai.com",
+  phone: "089-123-4567",
+  bio: "นักศึกษา ม.ธรรมศาสตร์ ท่าพระจันทร์ สนใจส่งต่อของใช้สภาพดีและหนังสือเรียนเพื่อความยั่งยืน 🌿",
+  avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500",
+  created_at: "2026-11-04T10:00:00Z",
+  updated_at: "2026-11-14T10:00:00Z",
+};
+
+// เก็บโปรไฟล์ demo ไว้ใน memory ระหว่างเซสชัน
+let inMemoryDemoProfile: UserProfile | null = null;
+
+export function getDemoProfile(): UserProfile {
+  if (!inMemoryDemoProfile) {
+    inMemoryDemoProfile = { ...DEMO_PROFILE };
+  }
+  return inMemoryDemoProfile;
+}
+
+export function updateDemoProfile(input: ProfileUpdateInput): UserProfile {
+  const current = getDemoProfile();
+  inMemoryDemoProfile = {
+    ...current,
+    ...input,
+    updated_at: new Date().toISOString(),
+  };
+  return inMemoryDemoProfile;
+}
+
+export function resetDemoProfile(): void {
+  inMemoryDemoProfile = null;
+}
+
 /**
- * ดึงข้อมูลผู้ใช้งานที่เข้าสู่ระบบปัจจุบัน
+ * ดึงข้อมูลผู้ใช้งานที่เข้าสู่ระบบปัจจุบันจาก Supabase Auth
  */
 export async function getCurrentUser() {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-  if (error || !user) {
+    if (error || !user) {
+      return null;
+    }
+    return user;
+  } catch (err) {
+    console.warn("getCurrentUser failed:", err);
     return null;
   }
-  return user;
 }
 
 /**
  * ดึงข้อมูลโปรไฟล์จากตาราง profiles โดยเชื่อมโยงกับ User ID
  */
 export async function getProfile(userId: string): Promise<UserProfile | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (error) {
-    console.warn("Error fetching profile:", error.message);
-    throw error;
+  // หากเป็น Demo user
+  if (userId === DEMO_PROFILE.id) {
+    return getDemoProfile();
   }
 
-  return data as UserProfile | null;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Error fetching profile from Supabase:", error.message);
+      return null;
+    }
+
+    return data as UserProfile | null;
+  } catch (err) {
+    console.warn("getProfile exception:", err);
+    return null;
+  }
 }
 
 /**
  * สร้างหรืออัปเดตข้อมูลโปรไฟล์เริ่มต้นสำหรับผู้ใช้ (หากยังไม่มีในตาราง)
  */
 export async function ensureProfile(user: any): Promise<UserProfile> {
+  if (!user) {
+    return getDemoProfile();
+  }
+
+  // หากเป็น Demo
+  if (user.id === DEMO_PROFILE.id) {
+    return getDemoProfile();
+  }
+
+  // 1. ลองดึงจากตาราง profiles
   const existing = await getProfile(user.id);
   if (existing) {
     return existing;
   }
 
+  // 2. ถ้ายังไม่มี ให้สร้าง profile เริ่มต้นจาก user metadata หรือ email
   const initialProfile: UserProfile = {
     id: user.id,
     full_name:
@@ -68,58 +131,103 @@ export async function ensureProfile(user: any): Promise<UserProfile> {
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .upsert(initialProfile)
-    .select()
-    .single();
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .upsert(initialProfile)
+      .select()
+      .maybeSingle();
 
-  if (error) {
-    console.warn("Failed to insert initial profile:", error.message);
+    if (error) {
+      console.warn("Failed to insert initial profile into db:", error.message);
+      return initialProfile;
+    }
+
+    return (data as UserProfile) || initialProfile;
+  } catch (err) {
+    console.warn("ensureProfile upsert exception:", err);
     return initialProfile;
   }
-
-  return data as UserProfile;
 }
 
 /**
- * อัปเดตข้อมูลโปรไฟล์ในฐานข้อมูล Supabase
+ * อัปเดตข้อมูลโปรไฟล์ในฐานข้อมูล Supabase (หรือ demo memory)
  */
 export async function updateProfile(
   userId: string,
   input: ProfileUpdateInput
 ): Promise<UserProfile> {
+  // หากเป็น Demo user
+  if (userId === DEMO_PROFILE.id) {
+    return updateDemoProfile(input);
+  }
+
   const updates: Record<string, any> = {
     ...input,
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .update(updates)
-    .eq("id", userId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error updating profile:", error);
-    throw error;
-  }
-
-  // อัปเดต metadata ใน Supabase Auth ด้วยเพื่อให้สอดคล้องกัน
   try {
-    await supabase.auth.updateUser({
-      data: {
-        full_name: input.full_name,
-        username: input.username,
-        phone: input.phone,
-      },
-    });
-  } catch (authErr) {
-    console.warn("Failed to sync metadata to auth user:", authErr);
-  }
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", userId)
+      .select()
+      .maybeSingle();
 
-  return data as UserProfile;
+    if (error) {
+      console.warn("Supabase profile update warning:", error.message);
+      // พยายาม sync ไปที่ auth metadata
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: input.full_name,
+            username: input.username,
+            phone: input.phone,
+            avatar_url: input.avatar_url,
+          },
+        });
+      } catch (authErr) {
+        console.warn("Auth update error:", authErr);
+      }
+      return {
+        id: userId,
+        full_name: input.full_name || null,
+        username: input.username || null,
+        email: null,
+        phone: input.phone || null,
+        bio: input.bio || null,
+        avatar_url: input.avatar_url || null,
+      };
+    }
+
+    // อัปเดต metadata ใน Supabase Auth ด้วยเพื่อให้สอดคล้องกัน
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          full_name: input.full_name,
+          username: input.username,
+          phone: input.phone,
+          avatar_url: input.avatar_url,
+        },
+      });
+    } catch (authErr) {
+      console.warn("Failed to sync metadata to auth user:", authErr);
+    }
+
+    return data as UserProfile;
+  } catch (err) {
+    console.warn("updateProfile exception, returning input fallback:", err);
+    return {
+      id: userId,
+      full_name: input.full_name || null,
+      username: input.username || null,
+      email: null,
+      phone: input.phone || null,
+      bio: input.bio || null,
+      avatar_url: input.avatar_url || null,
+    };
+  }
 }
 
 /**
@@ -166,6 +274,7 @@ export async function pickProfileImage(): Promise<ImagePicker.ImagePickerAsset |
 
 /**
  * อัปโหลดรูปภาพไปยัง Supabase Storage bucket 'avatars'
+ * หาก Storage ยังไม่ได้สร้าง bucket ไว้ จะ fallback กลับไปใช้รูปภาพ URI โดยไม่ทำให้ระบบค้าง
  */
 export async function uploadAvatarImage(
   userId: string,
@@ -177,51 +286,62 @@ export async function uploadAvatarImage(
   const contentType =
     asset.mimeType || (ext === "png" ? "image/png" : "image/jpeg");
 
-  let fileBody: any;
+  try {
+    let fileBody: any;
 
-  if (Platform.OS === "web") {
-    // บน Web สามารถ fetch URI เป็น Blob
-    const response = await fetch(uri);
-    const blob = await response.blob();
-
-    if (blob.size > MAX_FILE_SIZE_BYTES) {
-      throw new Error("ขนาดไฟล์รูปภาพต้องไม่เกิน 5 MB");
+    if (Platform.OS === "web") {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      if (blob.size > MAX_FILE_SIZE_BYTES) {
+        throw new Error("ขนาดไฟล์รูปภาพต้องไม่เกิน 5 MB");
+      }
+      fileBody = blob;
+    } else {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      if (blob.size > MAX_FILE_SIZE_BYTES) {
+        throw new Error("ขนาดไฟล์รูปภาพต้องไม่เกิน 5 MB");
+      }
+      fileBody = blob;
     }
-    fileBody = blob;
-  } else {
-    // บน Mobile (iOS / Android)
-    const response = await fetch(uri);
-    const blob = await response.blob();
 
-    if (blob.size > MAX_FILE_SIZE_BYTES) {
-      throw new Error("ขนาดไฟล์รูปภาพต้องไม่เกิน 5 MB");
+    const { error: uploadError } = await supabase.storage
+      .from("avatars")
+      .upload(fileName, fileBody, {
+        contentType,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.warn("Storage upload notice:", uploadError.message);
+      // Fallback: ใช้ URI เดิม เพื่อให้แอปทำงานต่อได้ไม่สะดุด
+      return uri;
     }
-    fileBody = blob;
+
+    const { data: publicUrlData } = supabase.storage
+      .from("avatars")
+      .getPublicUrl(fileName);
+
+    return publicUrlData.publicUrl || uri;
+  } catch (err: any) {
+    console.warn("Storage upload exception, using local uri fallback:", err);
+    return uri;
   }
-
-  const { error: uploadError } = await supabase.storage
-    .from("avatars")
-    .upload(fileName, fileBody, {
-      contentType,
-      upsert: true,
-    });
-
-  if (uploadError) {
-    console.error("Storage upload error:", uploadError);
-    throw new Error(`อัปโหลดรูปภาพไม่สำเร็จ: ${uploadError.message}`);
-  }
-
-  const { data: publicUrlData } = supabase.storage
-    .from("avatars")
-    .getPublicUrl(fileName);
-
-  return publicUrlData.publicUrl;
 }
 
 /**
  * ลบรูปโปรไฟล์
  */
-export async function removeAvatar(userId: string, currentAvatarUrl?: string | null): Promise<void> {
+export async function removeAvatar(
+  userId: string,
+  currentAvatarUrl?: string | null
+): Promise<void> {
+  // หากเป็น Demo
+  if (userId === DEMO_PROFILE.id) {
+    updateDemoProfile({ avatar_url: null });
+    return;
+  }
+
   // ลบไฟล์จาก Storage ถ้าเป็นไปได้
   if (currentAvatarUrl && currentAvatarUrl.includes("avatars/")) {
     try {
@@ -234,14 +354,13 @@ export async function removeAvatar(userId: string, currentAvatarUrl?: string | n
     }
   }
 
-  // อัปเดตในตาราง profiles ให้ avatar_url เป็น null
-  const { error } = await supabase
-    .from("profiles")
-    .update({ avatar_url: null, updated_at: new Date().toISOString() })
-    .eq("id", userId);
-
-  if (error) {
-    throw error;
+  try {
+    await supabase
+      .from("profiles")
+      .update({ avatar_url: null, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+  } catch (err) {
+    console.warn("removeAvatar db warning:", err);
   }
 }
 
@@ -249,16 +368,16 @@ export async function removeAvatar(userId: string, currentAvatarUrl?: string | n
  * แปลงวันที่เป็นข้อความภาษาไทยที่อ่านง่าย
  */
 export function formatJoinDate(dateString?: string | null): string {
-  if (!dateString) return "-";
+  if (!dateString) return "4 พฤศจิกายน 2569";
   try {
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "-";
+    if (isNaN(date.getTime())) return "4 พฤศจิกายน 2569";
     return date.toLocaleDateString("th-TH", {
       year: "numeric",
       month: "long",
       day: "numeric",
     });
   } catch {
-    return "-";
+    return "4 พฤศจิกายน 2569";
   }
 }

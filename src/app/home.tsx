@@ -190,6 +190,13 @@ export default function HomeScreen() {
           </Pressable>
           <Pressable
             style={[styles.iconBtn, { marginLeft: 8 }]}
+            onPress={() => router.push("/explore" as any)}
+            accessibilityLabel="สำรวจสิ่งของ"
+          >
+            <Ionicons name="compass-outline" size={20} color={COLORS.primary} />
+          </Pressable>
+          <Pressable
+            style={[styles.iconBtn, { marginLeft: 8 }]}
             onPress={() => router.push("/create" as any)}
             accessibilityLabel="ลงประกาศ"
           >
