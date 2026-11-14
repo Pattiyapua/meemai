@@ -10,9 +10,9 @@ export const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/jpg"];
 // โปรไฟล์ตัวอย่างสำหรับโหมด Guest / Demo
 export const DEMO_PROFILE: UserProfile = {
   id: "demo-user-meemai-001",
-  full_name: "นารถนียา พัววิไล",
+  full_name: "มั่งมี ศรีสุข",
   username: "nuania_tu",
-  email: "pattiya@meemai.com",
+  email: "abcde@meemai.com",
   phone: "089-123-4567",
   bio: "นักศึกษา ม.ธรรมศาสตร์ ท่าพระจันทร์ สนใจส่งต่อของใช้สภาพดีและหนังสือเรียนเพื่อความยั่งยืน 🌿",
   avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500",
