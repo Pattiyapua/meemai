@@ -1,13 +1,11 @@
+import { StatusBanner, SuccessState } from "@/components/UIState";
 import { COLORS } from "@/constants/theme";
 import { supabase } from "@/supabase";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
-  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -25,29 +23,22 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleRegister = async () => {
+    // Empty field validations
     if (!fullName.trim()) {
-      const msg = "กรุณากรอกชื่อ-นามสกุล";
-      setErrorMessage(msg);
-      if (Platform.OS === "web") window.alert(msg);
-      else Alert.alert("แจ้งเตือน", msg);
+      setErrorMessage("กรุณากรอกชื่อ-นามสกุล");
       return;
     }
 
     if (!email.trim()) {
-      const msg = "กรุณากรอกอีเมล";
-      setErrorMessage(msg);
-      if (Platform.OS === "web") window.alert(msg);
-      else Alert.alert("แจ้งเตือน", msg);
+      setErrorMessage("กรุณากรอกอีเมล");
       return;
     }
 
     if (!password || password.length < 6) {
-      const msg = "รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร";
-      setErrorMessage(msg);
-      if (Platform.OS === "web") window.alert(msg);
-      else Alert.alert("แจ้งเตือน", msg);
+      setErrorMessage("รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร");
       return;
     }
 
@@ -75,7 +66,6 @@ export default function RegisterScreen() {
       }
 
       if (data.user) {
-        // บันทึกข้อมูลเริ่มต้นลงในตาราง profiles ของ Supabase
         try {
           await supabase.from("profiles").upsert({
             id: data.user.id,
@@ -92,31 +82,21 @@ export default function RegisterScreen() {
         }
       }
 
-      const successMsg =
-        "สมัครสมาชิกสำเร็จเรียบร้อยแล้ว ยินดีต้อนรับสู่ MEEMAI!";
-      if (Platform.OS === "web") {
-        window.alert(successMsg);
-        router.replace("/home");
-      } else {
-        Alert.alert("สำเร็จ", successMsg, [
-          { text: "เริ่มต้นใช้งาน", onPress: () => router.replace("/home") },
-        ]);
-      }
+      // Success State
+      setIsSuccess(true);
     } catch (err: any) {
       console.error("Register error:", err);
       let friendlyMsg = err?.message || "ไม่สามารถสมัครสมาชิกได้";
       if (friendlyMsg.includes("User already registered")) {
         friendlyMsg = "อีเมลนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาเข้าสู่ระบบ";
-      } else if (friendlyMsg.includes("fetch failed")) {
+      } else if (
+        friendlyMsg.includes("fetch failed") ||
+        friendlyMsg.includes("Network request failed")
+      ) {
         friendlyMsg =
-          "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือสถานะ Supabase";
+          "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต";
       }
       setErrorMessage(friendlyMsg);
-      if (Platform.OS === "web") {
-        window.alert(friendlyMsg);
-      } else {
-        Alert.alert("สมัครสมาชิกไม่สำเร็จ", friendlyMsg);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -141,250 +121,189 @@ export default function RegisterScreen() {
           </Text>
         </View>
 
-        {/* Error banner */}
-        {errorMessage && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={18} color={COLORS.primary} />
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
+        {/* Success State */}
+        {isSuccess ? (
+          <SuccessState
+            title="สมัครสมาชิกสำเร็จเรียบร้อย!"
+            message={`ยินดีต้อนรับคุณ ${fullName} เข้าสู่ครอบครัว MEEMAI เริ่มต้นแบ่งปันและค้นหาสิ่งของได้เลย`}
+            actionLabel="เริ่มต้นใช้งานแอป"
+            onAction={() => router.replace("/home")}
+          />
+        ) : (
+          <>
+            {/* Error / Empty Validation Banner */}
+            {errorMessage ? (
+              <StatusBanner
+                type="error"
+                message={errorMessage}
+                onDismiss={() => setErrorMessage(null)}
+              />
+            ) : null}
+
+            {/* Card Form */}
+            <View style={styles.card}>
+              <Text style={styles.label}>ชื่อ-นามสกุล *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="กรอกชื่อ-นามสกุล"
+                placeholderTextColor="#C5BBAC"
+                value={fullName}
+                onChangeText={(t) => {
+                  setFullName(t);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                editable={!isLoading}
+              />
+
+              <Text style={styles.label}>อีเมล (ใช้สำหรับรับโค้ด/แจ้งเตือน) *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="example@meemai.com"
+                placeholderTextColor="#C5BBAC"
+                value={email}
+                onChangeText={(t) => {
+                  setEmail(t);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+
+              <Text style={styles.label}>เบอร์โทรศัพท์</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="08X-XXX-XXXX"
+                placeholderTextColor="#C5BBAC"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                editable={!isLoading}
+              />
+
+              <Text style={styles.label}>รหัสผ่าน (อย่างน้อย 6 ตัวอักษร) *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#C5BBAC"
+                value={password}
+                onChangeText={(t) => {
+                  setPassword(t);
+                  if (errorMessage) setErrorMessage(null);
+                }}
+                secureTextEntry
+                editable={!isLoading}
+              />
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  isLoading && { opacity: 0.7 },
+                  pressed && styles.btnPressed,
+                ]}
+                onPress={handleRegister}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                    <Text style={styles.primaryBtnText}>กำลังสร้างบัญชีผู้ใช้...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.primaryBtnText}>สมัครสมาชิก</Text>
+                )}
+              </Pressable>
+            </View>
+
+            {/* Footer */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>มีบัญชีอยู่แล้วใช่ไหม? </Text>
+              <Pressable onPress={() => router.push("/signin")}>
+                <Text style={styles.signInLink}>เข้าสู่ระบบ</Text>
+              </Pressable>
+            </View>
+          </>
         )}
-
-        {/* Card Form */}
-        <View style={styles.card}>
-          <Text style={styles.label}>ชื่อ-นามสกุล *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="กรอกชื่อ-นามสกุล"
-            placeholderTextColor="#C5BBAC"
-            value={fullName}
-            onChangeText={(t) => {
-              setFullName(t);
-              if (errorMessage) setErrorMessage(null);
-            }}
-            editable={!isLoading}
-          />
-
-          <Text style={styles.label}>อีเมล (ใช้สำหรับรับโค้ด/แจ้งเตือน) *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="example@meemai.com"
-            placeholderTextColor="#C5BBAC"
-            value={email}
-            onChangeText={(t) => {
-              setEmail(t);
-              if (errorMessage) setErrorMessage(null);
-            }}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            editable={!isLoading}
-          />
-
-          <Text style={styles.label}>เบอร์โทรศัพท์</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="08X-XXX-XXXX"
-            placeholderTextColor="#C5BBAC"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            editable={!isLoading}
-          />
-
-          <Text style={styles.label}>รหัสผ่าน (อย่างน้อย 6 ตัวอักษร) *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="••••••••"
-            placeholderTextColor="#C5BBAC"
-            value={password}
-            onChangeText={(t) => {
-              setPassword(t);
-              if (errorMessage) setErrorMessage(null);
-            }}
-            secureTextEntry
-            editable={!isLoading}
-          />
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryBtn,
-              isLoading && { opacity: 0.7 },
-              pressed && styles.btnPressed,
-            ]}
-            onPress={handleRegister}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.primaryBtnText}>สมัครสมาชิก</Text>
-            )}
-          </Pressable>
-
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>หรือสมัครด้วย</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* ปุ่ม TU Greats */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.tuBtn,
-              pressed && styles.btnPressed,
-            ]}
-            onPress={() => router.replace("/home")}
-            disabled={isLoading}
-          >
-            <Text style={styles.tuBtnText}>เชื่อมต่อด้วย TU Greats</Text>
-          </Pressable>
-
-          {/* ปุ่ม Google */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.googleBtn,
-              pressed && styles.btnPressed,
-            ]}
-            onPress={() => router.replace("/home")}
-            disabled={isLoading}
-          >
-            <Ionicons
-              name="logo-google"
-              size={18}
-              color="#EA4335"
-              style={{ marginRight: 8 }}
-            />
-            <Text style={styles.googleBtnText}>เข้าสู่ระบบด้วย Google</Text>
-          </Pressable>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>มีบัญชีอยู่แล้ว? </Text>
-          <Pressable onPress={() => router.push("/signin")}>
-            <Text style={styles.linkText}>เข้าสู่ระบบ</Text>
-          </Pressable>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scrollContent: { paddingHorizontal: 24, paddingVertical: 20 },
-  header: { alignItems: "center", marginBottom: 16 },
-  logo: { width: 95, height: 95, marginBottom: 8 },
-  title: { fontSize: 24, fontWeight: "900", color: COLORS.primary },
-  subtitle: { fontSize: 13, color: COLORS.textMuted, marginTop: 4 },
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FDECEA",
-    borderWidth: 1,
-    borderColor: "#F5C6CB",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 14,
-  },
-  errorText: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: "600",
-    marginLeft: 6,
+  container: {
     flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 36,
+  },
+  header: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  logo: {
+    width: 100,
+    height: 100,
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: "900",
+    color: COLORS.primary,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    textAlign: "center",
   },
   card: {
     backgroundColor: COLORS.cardBg,
     borderRadius: 24,
-    padding: 20,
+    padding: 24,
     borderWidth: 1,
     borderColor: COLORS.borderColor,
     shadowColor: "#59452B",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   label: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
     color: COLORS.textPrimary,
-    marginBottom: 4,
+    marginBottom: 6,
     marginTop: 10,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: "#FFFDF9",
-    borderWidth: 1.5,
-    borderColor: COLORS.borderColor,
+    backgroundColor: COLORS.backgroundElement,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 14,
+    paddingVertical: 12,
+    fontSize: 15,
     color: COLORS.textPrimary,
   },
   primaryBtn: {
     backgroundColor: COLORS.primary,
-    borderRadius: 16,
-    height: 50,
+    borderRadius: 14,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
-  },
-  btnPressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.98 }],
   },
   primaryBtnText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "800",
   },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 18,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: COLORS.borderColor,
-  },
-  dividerText: {
-    paddingHorizontal: 10,
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  tuBtn: {
-    backgroundColor: "#FFE5E5",
-    borderWidth: 1,
-    borderColor: "#FFCDD2",
-    borderRadius: 14,
-    height: 46,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  tuBtnText: {
-    color: COLORS.primary,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  googleBtn: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1.5,
-    borderColor: COLORS.borderColor,
-    borderRadius: 14,
-    height: 46,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  googleBtnText: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
+  btnPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.99 }],
   },
   footer: {
     flexDirection: "row",
@@ -393,12 +312,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   footerText: {
-    fontSize: 13,
     color: COLORS.textMuted,
+    fontSize: 14,
   },
-  linkText: {
-    fontSize: 13,
+  signInLink: {
+    color: COLORS.primary,
+    fontSize: 14,
     fontWeight: "800",
-    color: COLORS.orange,
   },
 });

@@ -1,3 +1,4 @@
+import { LoadingState, StatusBanner } from "@/components/UIState";
 import { COLORS, MaxContentWidth } from "@/constants/theme";
 import {
   ensureProfile,
@@ -240,35 +241,24 @@ export default function EditProfileScreen() {
           <View style={styles.responsiveWrapper}>
             {/* Loading */}
             {isLoading ? (
-              <View style={styles.centerContainer}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={styles.loadingText}>กำลังโหลดข้อมูล...</Text>
-              </View>
+              <LoadingState message="กำลังโหลดข้อมูลโปรไฟล์..." />
             ) : (
               <>
                 {/* Alert Banners */}
                 {errorMessage && (
-                  <View style={styles.errorBanner}>
-                    <Ionicons
-                      name="alert-circle"
-                      size={20}
-                      color={COLORS.primary}
-                    />
-                    <Text style={styles.errorBannerText}>{errorMessage}</Text>
-                  </View>
+                  <StatusBanner
+                    type="error"
+                    message={errorMessage}
+                    onDismiss={() => setErrorMessage(null)}
+                  />
                 )}
 
                 {successMessage && (
-                  <View style={styles.successBanner}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color="#2E7D32"
-                    />
-                    <Text style={styles.successBannerText}>
-                      {successMessage}
-                    </Text>
-                  </View>
+                  <StatusBanner
+                    type="success"
+                    message={successMessage}
+                    onDismiss={() => setSuccessMessage(null)}
+                  />
                 )}
 
                 {/* Avatar Section */}

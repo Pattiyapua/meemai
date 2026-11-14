@@ -1,3 +1,4 @@
+import { ErrorState, LoadingState } from "@/components/UIState";
 import { COLORS, MaxContentWidth } from "@/constants/theme";
 import { formatJoinDate, getProfile, ensureProfile, getCurrentUser } from "@/services/profileService";
 import { supabase } from "@/supabase";
@@ -120,26 +121,16 @@ export default function ProfileScreen() {
         <View style={styles.responsiveWrapper}>
           {/* Loading State */}
           {isLoading && (
-            <View style={styles.centerContainer}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-              <Text style={styles.loadingText}>กำลังโหลดข้อมูลโปรไฟล์...</Text>
-            </View>
+            <LoadingState message="กำลังโหลดข้อมูลโปรไฟล์..." />
           )}
 
           {/* Error State */}
           {!isLoading && errorMessage && (
-            <View style={styles.errorCard}>
-              <Ionicons
-                name="alert-circle-outline"
-                size={36}
-                color={COLORS.primary}
-              />
-              <Text style={styles.errorTitle}>เกิดข้อผิดพลาด</Text>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-              <Pressable style={styles.retryBtn} onPress={loadProfileData}>
-                <Text style={styles.retryBtnText}>ลองใหม่อีกครั้ง</Text>
-              </Pressable>
-            </View>
+            <ErrorState
+              title="เกิดข้อผิดพลาด"
+              message={errorMessage}
+              onRetry={loadProfileData}
+            />
           )}
 
           {/* Not Logged In State */}

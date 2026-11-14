@@ -1,16 +1,18 @@
+import { EmptyState, ErrorState, LoadingState, StatusBanner } from "@/components/UIState";
 import { COLORS } from "@/constants/theme";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
-    Image,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Image,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 
 const CATEGORIES = [
@@ -105,7 +107,38 @@ export default function HomeScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState("ทั้งหมด");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [itemList, setItemList] = useState([...NEARBY_ITEMS]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const loadItems = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setErrorMessage(null);
+
+      // จำลองการโหลดข้อมูลให้เห็นสถานะและพร้อมดึงข้อมูลล่าสุด
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      setItemList([...NEARBY_ITEMS]);
+      if (isRefresh) {
+        setSuccessMessage("อัปเดตรายการสินค้าล่าสุดเรียบร้อยแล้ว");
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        err?.message || "ไม่สามารถโหลดข้อมูลสินค้าได้ กรุณาลองใหม่อีกครั้ง"
+      );
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -114,6 +147,15 @@ export default function HomeScreen() {
   );
 
   const filteredItems = itemList.filter((item) => {
+    // กรองคำค้นหา
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchTitle = item.title.toLowerCase().includes(q);
+      const matchDesc = item.description?.toLowerCase().includes(q);
+      const matchCat = item.category?.toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc && !matchCat) return false;
+    }
+
     if (selectedCategory !== "all" && item.category !== selectedCategory) {
       return false;
     }
@@ -141,6 +183,13 @@ export default function HomeScreen() {
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Pressable
             style={styles.iconBtn}
+            onPress={() => loadItems(true)}
+            accessibilityLabel="รีเฟรชข้อมูล"
+          >
+            <Ionicons name="refresh" size={18} color={COLORS.primary} />
+          </Pressable>
+          <Pressable
+            style={[styles.iconBtn, { marginLeft: 8 }]}
             onPress={() => router.push("/create" as any)}
             accessibilityLabel="ลงประกาศ"
           >
@@ -163,7 +212,35 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => loadItems(true)}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+          />
+        }
       >
+        {/* Status Banner เมื่อทำรายการสำเร็จหรือแจ้งเตือน */}
+        {successMessage ? (
+          <StatusBanner
+            type="success"
+            message={successMessage}
+            onDismiss={() => setSuccessMessage(null)}
+            style={{ marginTop: 12 }}
+          />
+        ) : null}
+
+        {/* Error Banner */}
+        {errorMessage ? (
+          <StatusBanner
+            type="error"
+            message={errorMessage}
+            onDismiss={() => setErrorMessage(null)}
+            style={{ marginTop: 12 }}
+          />
+        ) : null}
+
         {/* Search Bar */}
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={18} color={COLORS.textMuted} />
@@ -171,7 +248,14 @@ export default function HomeScreen() {
             placeholder="ค้นหาสินค้าใกล้ตัว, ประเภทสินค้า..."
             placeholderTextColor={COLORS.textMuted}
             style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
+          {searchQuery ? (
+            <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={COLORS.textMuted} />
+            </Pressable>
+          ) : null}
         </View>
 
         <Text style={styles.sectionTitle}>หมวดหมู่แนะนำ</Text>
@@ -250,7 +334,18 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.grid}>
-          {filteredItems.length > 0 ? (
+          {isLoading ? (
+            <LoadingState
+              message="กำลังโหลดรายการสินค้าใกล้ตัว..."
+              subMessage="รอสักครู่ ระบบกำลังค้นหาของดีรอบตัวคุณ"
+            />
+          ) : errorMessage ? (
+            <ErrorState
+              title="โหลดรายการสินค้าไม่สำเร็จ"
+              message={errorMessage}
+              onRetry={() => loadItems(false)}
+            />
+          ) : filteredItems.length > 0 ? (
             filteredItems.map((item) => (
               <Pressable
                 key={item.id}
@@ -289,9 +384,23 @@ export default function HomeScreen() {
               </Pressable>
             ))
           ) : (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyText}>ไม่พบสินค้าในหมวดหมู่นี้</Text>
-            </View>
+            <EmptyState
+              icon="cube-outline"
+              title="ไม่มีข้อมูลสินค้า"
+              message={
+                searchQuery
+                  ? `ไม่พบสินค้าที่ตรงกับคำว่า "${searchQuery}"`
+                  : "ยังไม่มีสินค้าในหมวดหมู่ที่เลือก ลองล้างตัวกรองหรือลงประกาศส่งต่อสิ่งของเป็นคนแรก"
+              }
+              actionLabel="ล้างตัวกรองทั้งหมด"
+              onAction={() => {
+                setSelectedCategory("all");
+                setSelectedFilter("ทั้งหมด");
+                setSearchQuery("");
+              }}
+              secondaryActionLabel="ลงประกาศสิ่งของ"
+              onSecondaryAction={() => router.push("/create" as any)}
+            />
           )}
         </View>
       </ScrollView>

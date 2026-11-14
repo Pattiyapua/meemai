@@ -1,13 +1,11 @@
+import { StatusBanner } from "@/components/UIState";
 import { COLORS } from "@/constants/theme";
 import { supabase } from "@/supabase";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
-  Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -22,16 +20,12 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSignIn = async () => {
+    // Empty field validation state
     if (!email.trim() || !password) {
-      const msg = "กรุณากรอกอีเมลและรหัสผ่าน";
-      setErrorMessage(msg);
-      if (Platform.OS === "web") {
-        window.alert(msg);
-      } else {
-        Alert.alert("แจ้งเตือน", msg);
-      }
+      setErrorMessage("กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน");
       return;
     }
 
@@ -48,23 +42,27 @@ export default function SignInScreen() {
         throw error;
       }
 
-      // เข้าสู่ระบบสำเร็จ
-      router.replace("/home");
+      // Success state
+      setSuccessMessage("เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับกลับสู่ MEEMAI");
+      setTimeout(() => {
+        router.replace("/home");
+      }, 700);
     } catch (err: any) {
       console.error("Sign in error:", err);
       let friendlyMsg = err?.message || "ไม่สามารถเข้าสู่ระบบได้";
-      if (friendlyMsg.includes("Invalid login credentials")) {
-        friendlyMsg = "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
-      } else if (friendlyMsg.includes("fetch failed")) {
+      if (
+        friendlyMsg.includes("Invalid login credentials") ||
+        friendlyMsg.includes("invalid_grant")
+      ) {
+        friendlyMsg = "อีเมลหรือรหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง";
+      } else if (
+        friendlyMsg.includes("fetch failed") ||
+        friendlyMsg.includes("Network request failed")
+      ) {
         friendlyMsg =
-          "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตหรือสถานะ Supabase";
+          "ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาตรวจสอบสัญญาณอินเทอร์เน็ต";
       }
       setErrorMessage(friendlyMsg);
-      if (Platform.OS === "web") {
-        window.alert(friendlyMsg);
-      } else {
-        Alert.alert("เข้าสู่ระบบไม่สำเร็จ", friendlyMsg);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -86,13 +84,23 @@ export default function SignInScreen() {
           </Text>
         </View>
 
-        {/* Error message banner */}
-        {errorMessage && (
-          <View style={styles.errorBanner}>
-            <Ionicons name="alert-circle" size={18} color={COLORS.primary} />
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
-        )}
+        {/* Success message banner */}
+        {successMessage ? (
+          <StatusBanner
+            type="success"
+            message={successMessage}
+            onDismiss={() => setSuccessMessage(null)}
+          />
+        ) : null}
+
+        {/* Error / Empty message banner */}
+        {errorMessage ? (
+          <StatusBanner
+            type="error"
+            message={errorMessage}
+            onDismiss={() => setErrorMessage(null)}
+          />
+        ) : null}
 
         {/* Form Card */}
         <View style={styles.card}>
@@ -135,7 +143,10 @@ export default function SignInScreen() {
             disabled={isLoading}
           >
             {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <ActivityIndicator color="#FFFFFF" size="small" />
+                <Text style={styles.primaryBtnText}>กำลังเข้าสู่ระบบ...</Text>
+              </View>
             ) : (
               <Text style={styles.primaryBtnText}>เข้าสู่ระบบ</Text>
             )}
@@ -192,23 +203,6 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     marginTop: 4,
   },
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FDECEA",
-    borderWidth: 1,
-    borderColor: "#F5C6CB",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 14,
-  },
-  errorText: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: "600",
-    marginLeft: 6,
-    flex: 1,
-  },
   card: {
     backgroundColor: COLORS.cardBg,
     borderRadius: 24,
@@ -216,37 +210,40 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderColor,
     shadowColor: "#59452B",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
   },
   label: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
     color: COLORS.textPrimary,
     marginBottom: 6,
     marginTop: 10,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: "#FFFDF9",
-    borderWidth: 1.5,
-    borderColor: COLORS.borderColor,
+    backgroundColor: COLORS.backgroundElement,
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.textPrimary,
   },
   primaryBtn: {
     backgroundColor: COLORS.primary,
-    borderRadius: 16,
+    borderRadius: 14,
     height: 52,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
+  },
+  primaryBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "800",
   },
   guestBtn: {
     alignItems: "center",
@@ -262,12 +259,7 @@ const styles = StyleSheet.create({
   },
   btnPressed: {
     opacity: 0.88,
-    transform: [{ scale: 0.98 }],
-  },
-  primaryBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
+    transform: [{ scale: 0.99 }],
   },
   footer: {
     flexDirection: "row",
@@ -275,12 +267,12 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   footerText: {
-    fontSize: 13,
     color: COLORS.textMuted,
+    fontSize: 14,
   },
   registerLink: {
-    fontSize: 13,
+    color: COLORS.primary,
+    fontSize: 14,
     fontWeight: "800",
-    color: COLORS.orange,
   },
 });

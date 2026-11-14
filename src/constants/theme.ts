@@ -11,6 +11,12 @@ export const COLORS = {
   backgroundElement: "#F7EEDD", // สีพื้นหลังปุ่ม/แท็บ
   backgroundSelected: "#F0E5D2",
   textSecondary: "#9B8D7A",
+  success: "#2E7D32",
+  successBg: "#E8F5E9",
+  error: "#C62828",
+  errorBg: "#FFEBEE",
+  warning: "#EF6C00",
+  warningBg: "#FFF3E0",
 };
 
 // เพิ่ม Alias เพื่อป้องกันปัญหาชื่อตัวแปรย่อย

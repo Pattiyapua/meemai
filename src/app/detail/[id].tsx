@@ -1,6 +1,13 @@
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  StatusBanner,
+} from "@/components/UIState";
 import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   Image,
   Pressable,
@@ -17,109 +24,228 @@ export default function ItemDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
 
-  // 📍 ค้นหาสินค้าจาก ID ที่ถูกส่งมาจากหน้า Home
-  const item = NEARBY_ITEMS.find((i) => i.id === id) || NEARBY_ITEMS[0];
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [item, setItem] = useState<(typeof NEARBY_ITEMS)[0] | null>(null);
+
+  const loadItemDetail = () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    // จำลองการดึงข้อมูลจาก API / Storage
+    setTimeout(() => {
+      try {
+        const found = NEARBY_ITEMS.find((i) => i.id === id);
+        if (found) {
+          setItem(found);
+        } else {
+          setItem(null);
+        }
+      } catch (err: any) {
+        setErrorMessage(
+          err?.message || "เกิดข้อผิดพลาดในการโหลดรายละเอียดสินค้า"
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }, 300);
+  };
+
+  useEffect(() => {
+    loadItemDetail();
+  }, [id]);
+
+  const handleToggleFavorite = () => {
+    setIsFavorite(!isFavorite);
+    setSuccessMessage(
+      !isFavorite
+        ? "บันทึกสินค้าลงในรายการโปรดเรียบร้อย"
+        : "นำสินค้าออกจากรายการโปรดแล้ว"
+    );
+  };
+
+  const handleShare = () => {
+    setSuccessMessage("คัดลอกลิงก์สำหรับแชร์เรียบร้อยแล้ว!");
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/home" as any);
+            }
+          }}
+          accessibilityLabel="ย้อนกลับ"
+        >
           <Ionicons name="arrow-back" size={20} color={COLORS.textPrimary} />
         </Pressable>
+
         <Text style={styles.headerTitle}>รายละเอียดสินค้า</Text>
-        <Pressable style={styles.backBtn}>
-          <Ionicons
-            name="share-social-outline"
-            size={20}
-            color={COLORS.textPrimary}
-          />
-        </Pressable>
-      </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
-      >
-        {/* รูปภาพสินค้า */}
-        <Image
-          source={
-            typeof item.image === "string" ? { uri: item.image } : item.image
-          }
-          style={styles.image}
-          resizeMode="cover"
-        />
-
-        {/* ข้อมูลสินค้า */}
-        <View style={styles.detailsCard}>
-          <View style={styles.tagRow}>
-            <View style={styles.typeBadge}>
-              <Text style={styles.typeBadgeText}>{item.type}</Text>
-            </View>
-            <Text style={styles.categoryText}>
-              หมวดหมู่: {item.category || "ทั่วไป"}
-            </Text>
-          </View>
-
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={[styles.price, item.isFree && styles.freePrice]}>
-            {item.price}
-          </Text>
-
-          <View style={styles.locationRow}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Pressable
+            style={styles.backBtn}
+            onPress={handleToggleFavorite}
+            accessibilityLabel="บันทึกรายการโปรด"
+          >
             <Ionicons
-              name="location-outline"
-              size={16}
-              color={COLORS.textMuted}
+              name={isFavorite ? "heart" : "heart-outline"}
+              size={20}
+              color={isFavorite ? COLORS.primary : COLORS.textPrimary}
             />
-            <Text style={styles.locationText}>{item.location}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* ข้อมูลผู้ขาย */}
-          <View style={styles.sellerRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {item.seller ? item.seller[0].toUpperCase() : "U"}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sellerName}>
-                {item.seller || "ผู้ใช้งาน MEEMAI"}
-              </Text>
-              <Text style={styles.sellerSub}>นักศึกษา • มธรรมศาสตร์</Text>
-            </View>
-          </View>
-
-          <View style={styles.divider} />
-
-          {/* รายละเอียด */}
-          <Text style={styles.sectionHeader}>รายละเอียดสิ่งของ</Text>
-          <Text style={styles.description}>{item.description}</Text>
+          </Pressable>
+          <Pressable
+            style={styles.backBtn}
+            onPress={handleShare}
+            accessibilityLabel="แชร์สินค้า"
+          >
+            <Ionicons
+              name="share-social-outline"
+              size={20}
+              color={COLORS.textPrimary}
+            />
+          </Pressable>
         </View>
-      </ScrollView>
-
-      {/* ปุ่มกดทักแชท */}
-      <View style={styles.footer}>
-        <Pressable
-          style={styles.chatBtn}
-          onPress={() => router.push(`/chat/${item.id}` as any)}
-        >
-          <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={20}
-            color="#FFFFFF"
-          />
-          <Text style={styles.chatBtnText}>ส่งข้อความพูดคุย / นัดรับ</Text>
-        </Pressable>
       </View>
+
+      {/* Main Content with 4 UI States */}
+      {isLoading ? (
+        <LoadingState
+          fullScreen
+          message="กำลังโหลดรายละเอียดสินค้า..."
+          subMessage="กรุณารอสักครู่ MEEMAI กำลังดึงข้อมูลสินค้าให้คุณ"
+        />
+      ) : errorMessage ? (
+        <ScrollView contentContainerStyle={styles.centerPadded}>
+          <ErrorState
+            title="เกิดข้อผิดพลาด"
+            message={errorMessage}
+            onRetry={loadItemDetail}
+            secondaryActionLabel="กลับหน้าหลัก"
+            onSecondaryAction={() => router.replace("/home" as any)}
+          />
+        </ScrollView>
+      ) : !item ? (
+        <ScrollView contentContainerStyle={styles.centerPadded}>
+          <EmptyState
+            icon="cube-outline"
+            title="ไม่พบสินค้านี้"
+            message="สินค้าชิ้นนี้อาจถูกส่งต่อแล้ว หรือไม่มีอยู่ในระบบ MEEMAI"
+            actionLabel="กลับสู่หน้าหลัก"
+            onAction={() => router.replace("/home" as any)}
+          />
+        </ScrollView>
+      ) : (
+        <>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.content}
+          >
+            {/* Success Banner */}
+            {successMessage ? (
+              <StatusBanner
+                type="success"
+                message={successMessage}
+                onDismiss={() => setSuccessMessage(null)}
+                style={{ marginBottom: 12 }}
+              />
+            ) : null}
+
+            {/* รูปภาพสินค้า */}
+            <Image
+              source={
+                typeof item.image === "string" ? { uri: item.image } : item.image
+              }
+              style={styles.image}
+              resizeMode="cover"
+            />
+
+            {/* ข้อมูลสินค้า */}
+            <View style={styles.detailsCard}>
+              <View style={styles.tagRow}>
+                <View style={styles.typeBadge}>
+                  <Text style={styles.typeBadgeText}>{item.type}</Text>
+                </View>
+                <Text style={styles.categoryText}>
+                  หมวดหมู่: {item.category || "ทั่วไป"}
+                </Text>
+              </View>
+
+              <Text style={styles.title}>{item.title}</Text>
+              <Text style={[styles.price, item.isFree && styles.freePrice]}>
+                {item.price}
+              </Text>
+
+              <View style={styles.locationRow}>
+                <Ionicons
+                  name="location-outline"
+                  size={16}
+                  color={COLORS.textMuted}
+                />
+                <Text style={styles.locationText}>{item.location}</Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* ข้อมูลผู้ขาย */}
+              <View style={styles.sellerRow}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {item.seller ? item.seller[0].toUpperCase() : "U"}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sellerName}>
+                    {item.seller || "ผู้ใช้งาน MEEMAI"}
+                  </Text>
+                  <Text style={styles.sellerSub}>นักศึกษา • ม.ธรรมศาสตร์</Text>
+                </View>
+              </View>
+
+              <View style={styles.divider} />
+
+              {/* รายละเอียด */}
+              <Text style={styles.sectionHeader}>รายละเอียดสิ่งของ</Text>
+              <Text style={styles.description}>{item.description}</Text>
+            </View>
+          </ScrollView>
+
+          {/* ปุ่มกดทักแชท */}
+          <View style={styles.footer}>
+            <Pressable
+              style={styles.chatBtn}
+              onPress={() => router.push(`/chat/${item.id}` as any)}
+            >
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={20}
+                color="#FFFFFF"
+              />
+              <Text style={styles.chatBtnText}>ส่งข้อความพูดคุย / นัดรับ</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  centerPadded: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -137,45 +263,55 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.borderColor,
   },
-  headerTitle: { fontSize: 16, fontWeight: "800", color: COLORS.textPrimary },
-  content: { paddingBottom: 100 },
-  image: { width: "100%", height: 260 },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  content: { padding: 20, paddingBottom: 100 },
+  image: {
+    width: "100%",
+    height: 280,
+    borderRadius: 20,
+    marginBottom: 16,
+    backgroundColor: COLORS.backgroundElement,
+  },
   detailsCard: {
     backgroundColor: COLORS.cardBg,
-    marginTop: -20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 20,
     padding: 20,
+    borderWidth: 1,
+    borderColor: COLORS.borderColor,
   },
   tagRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
   typeBadge: {
-    backgroundColor: COLORS.orange,
+    backgroundColor: "#FFEEDB",
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 8,
   },
-  typeBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
-  categoryText: { fontSize: 12, color: COLORS.textMuted, fontWeight: "700" },
+  typeBadgeText: { fontSize: 12, fontWeight: "700", color: COLORS.primary },
+  categoryText: { fontSize: 13, color: COLORS.textMuted },
   title: {
-    fontSize: 18,
-    fontWeight: "900",
+    fontSize: 20,
+    fontWeight: "800",
     color: COLORS.textPrimary,
     marginBottom: 6,
   },
   price: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "900",
     color: COLORS.primary,
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  freePrice: { color: "#2E7D32" },
-  locationRow: { flexDirection: "row", alignItems: "center" },
-  locationText: { fontSize: 12, color: COLORS.textMuted, marginLeft: 4 },
+  freePrice: { color: COLORS.orange },
+  locationRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
+  locationText: { fontSize: 13, color: COLORS.textMuted, marginLeft: 4 },
   divider: {
     height: 1,
     backgroundColor: COLORS.borderColor,
@@ -186,44 +322,43 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.backgroundElement,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  avatarText: { color: "#FFFFFF", fontSize: 18, fontWeight: "900" },
-  sellerName: { fontSize: 14, fontWeight: "800", color: COLORS.textPrimary },
-  sellerSub: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
+  avatarText: { fontSize: 18, fontWeight: "700", color: COLORS.primary },
+  sellerName: { fontSize: 15, fontWeight: "700", color: COLORS.textPrimary },
+  sellerSub: { fontSize: 12, color: COLORS.textMuted, marginTop: 2 },
   sectionHeader: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 15,
+    fontWeight: "700",
     color: COLORS.textPrimary,
     marginBottom: 8,
   },
-  description: { fontSize: 13, color: COLORS.textMuted, lineHeight: 20 },
+  description: {
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    lineHeight: 22,
+  },
   footer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: COLORS.cardBg,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    padding: 16,
     borderTopWidth: 1,
-    borderColor: COLORS.borderColor,
+    borderTopColor: COLORS.borderColor,
   },
   chatBtn: {
     backgroundColor: COLORS.primary,
-    height: 48,
-    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    height: 50,
+    borderRadius: 14,
+    gap: 8,
   },
-  chatBtnText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
-    marginLeft: 8,
-  },
+  chatBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
 });
