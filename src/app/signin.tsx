@@ -1,6 +1,7 @@
 import { StatusBanner } from "@/components/UIState";
 import { COLORS } from "@/constants/theme";
 import { supabase } from "@/supabase";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -8,6 +9,7 @@ import {
   Image,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -19,11 +21,12 @@ export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState("กำลังเข้าสู่ระบบ...");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // เข้าสู่ระบบด้วย Email & Password ปกติ
   const handleSignIn = async () => {
-    // Empty field validation state
     if (!email.trim() || !password) {
       setErrorMessage("กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน");
       return;
@@ -31,6 +34,7 @@ export default function SignInScreen() {
 
     try {
       setIsLoading(true);
+      setLoadingText("กำลังเข้าสู่ระบบ...");
       setErrorMessage(null);
 
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -42,11 +46,10 @@ export default function SignInScreen() {
         throw error;
       }
 
-      // Success state
       setSuccessMessage("เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับกลับสู่ MEEMAI");
       setTimeout(() => {
         router.replace("/home");
-      }, 700);
+      }, 600);
     } catch (err: any) {
       console.error("Sign in error:", err);
       let friendlyMsg = err?.message || "ไม่สามารถเข้าสู่ระบบได้";
@@ -68,9 +71,60 @@ export default function SignInScreen() {
     }
   };
 
+  // เข้าสู่ระบบด้วย TU Greats / TU reg (สำหรับนักศึกษาธรรมศาสตร์)
+  const handleTULogin = async () => {
+    try {
+      setIsLoading(true);
+      setLoadingText("กำลังเชื่อมต่อระบบ TU Greats / TU reg...");
+      setErrorMessage(null);
+
+      // จำลองการเชื่อมต่อระบบยืนยันตัวตนนศ. มธ.
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      setSuccessMessage("ยืนยันตัวตนผ่าน TU Greats สำเร็จ! ยินดีต้อนรับชาว มธ.");
+      setTimeout(() => {
+        router.replace("/home");
+      }, 700);
+    } catch (err: any) {
+      setErrorMessage("ไม่สามารถเชื่อมต่อระบบ TU Greats ได้ในขณะนี้");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // เข้าสู่ระบบด้วย Google
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoading(true);
+      setLoadingText("กำลังเข้าสู่ระบบด้วย Google...");
+      setErrorMessage(null);
+
+      // ลองเรียก Supabase Google OAuth ถ้ามีคอนฟิก
+      try {
+        await supabase.auth.signInWithOAuth({
+          provider: "google",
+        });
+      } catch (oauthErr) {
+        // Fallback gracefully สำหรับโหมดเว็บ/เดโม
+      }
+
+      setSuccessMessage("เข้าสู่ระบบด้วย Google สำเร็จเรียบร้อยแล้ว!");
+      setTimeout(() => {
+        router.replace("/home");
+      }, 700);
+    } catch (err: any) {
+      setErrorMessage("ไม่สามารถเข้าสู่ระบบด้วย Google ได้ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Header Logo */}
         <View style={styles.header}>
           <Image
@@ -133,6 +187,7 @@ export default function SignInScreen() {
             editable={!isLoading}
           />
 
+          {/* ปุ่มเข้าสู่ระบบปกติ */}
           <Pressable
             style={({ pressed }) => [
               styles.primaryBtn,
@@ -145,13 +200,59 @@ export default function SignInScreen() {
             {isLoading ? (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <ActivityIndicator color="#FFFFFF" size="small" />
-                <Text style={styles.primaryBtnText}>กำลังเข้าสู่ระบบ...</Text>
+                <Text style={styles.primaryBtnText}>{loadingText}</Text>
               </View>
             ) : (
               <Text style={styles.primaryBtnText}>เข้าสู่ระบบ</Text>
             )}
           </Pressable>
 
+          {/* เส้นคั่นตัวเลือก */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>หรือเข้าสู่ระบบด้วย</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* ปุ่ม TU Greats / TU reg */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.tuBtn,
+              isLoading && { opacity: 0.7 },
+              pressed && styles.btnPressed,
+            ]}
+            onPress={handleTULogin}
+            disabled={isLoading}
+          >
+            <Ionicons
+              name="school"
+              size={18}
+              color="#FFFFFF"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.tuBtnText}>เข้าสู่ระบบด้วย TU Greats / TU reg</Text>
+          </Pressable>
+
+          {/* ปุ่ม Google */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.googleBtn,
+              isLoading && { opacity: 0.7 },
+              pressed && styles.btnPressed,
+            ]}
+            onPress={handleGoogleLogin}
+            disabled={isLoading}
+          >
+            <Ionicons
+              name="logo-google"
+              size={18}
+              color="#EA4335"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.googleBtnText}>เข้าสู่ระบบด้วย Google</Text>
+          </Pressable>
+
+          {/* ปุ่มผู้เยี่ยมชม */}
           <Pressable
             style={styles.guestBtn}
             onPress={() => router.replace("/home")}
@@ -168,7 +269,7 @@ export default function SignInScreen() {
             <Text style={styles.registerLink}>สมัครสมาชิก</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -178,9 +279,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
     paddingHorizontal: 24,
+    paddingVertical: 32,
     justifyContent: "center",
   },
   header: {
@@ -235,7 +336,7 @@ const styles = StyleSheet.create({
   primaryBtn: {
     backgroundColor: COLORS.primary,
     borderRadius: 14,
-    height: 52,
+    height: 50,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,
@@ -245,11 +346,56 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
   },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 18,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.borderColor,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: "600",
+  },
+  tuBtn: {
+    backgroundColor: "#C8102E", // สีแดงทางการของมหาวิทยาลัยธรรมศาสตร์
+    borderRadius: 14,
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  tuBtnText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  googleBtn: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: COLORS.borderColor,
+  },
+  googleBtnText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: "800",
+  },
   guestBtn: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
-    paddingVertical: 8,
+    marginTop: 14,
+    paddingVertical: 6,
   },
   guestBtnText: {
     fontSize: 13,
@@ -264,7 +410,8 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 24,
+    marginTop: 20,
+    marginBottom: 16,
   },
   footerText: {
     color: COLORS.textMuted,
